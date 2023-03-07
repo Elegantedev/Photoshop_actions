@@ -1,0 +1,310 @@
+#target photoshop
+
+if (app.documents.length > 0) {
+    var myDocument = app.activeDocument;
+    var theName = myDocument.name.match(/(.*)\.[^\.]*$/)[1];
+    var thePath = myDocument.path;
+    var theLayer = myDocument.activeLayer;
+
+    // JPG Options;
+    jpgSaveOptions = new JPEGSaveOptions();  
+    jpgSaveOptions.embedColorProfile = true;  
+    jpgSaveOptions.formatOptions = FormatOptions.STANDARDBASELINE;  
+    jpgSaveOptions.matte = MatteType.NONE;  
+    jpgSaveOptions.quality = 11;
+
+    // display the modal dialog for selecting folders
+    var folders = selectFolders();
+    if (folders != null) {
+        var documentFolder = folders[0];
+        var sourceFolder = folders[1];
+        var destinationFolder = folders[2];
+        var documentFiles = documentFolder.getFiles(/\.(psd)$/i);
+        for (var i = 0; i < documentFiles.length; i++) {
+            var document = open(documentFiles[i]);
+            var documentName = documentFiles[i].name.match(/(.*)\.[^\.]*$/)[1];
+            // rest of the code here
+            document.close(SaveOptions.DONOTSAVECHANGES);
+        }
+    }
+}
+
+function selectFolders() {
+    var folders = null;
+    var dialog = new Window("dialog", "Select Folders");
+    var scriptRun = false;
+
+    var documentFolderText = dialog.add("statictext", undefined, "Select the folder containing Photoshop documents:");
+    var documentFolderGroup = dialog.add("group");
+    var documentFolderButton = documentFolderGroup.add("button", undefined, "Select Folder");
+    documentFolderButton.alignment = "left";
+    var documentFolderEditText = documentFolderGroup.add("edittext", undefined, "", {multiline: false});
+    documentFolderEditText.size = [350, 25];
+    documentFolderEditText.alignment = "left";
+
+    var sourceFolderText = dialog.add("statictext", undefined, "Select the source folder:");
+    sourceFolderText.alignment = "center";
+    var sourceFolderGroup = dialog.add("group");
+    var sourceFolderButton = sourceFolderGroup.add("button", undefined, "Select Folder");
+    sourceFolderButton.alignment = "left";
+    var sourceFolderEditText = sourceFolderGroup.add("edittext", undefined, "", {multiline: false});
+    sourceFolderEditText.size = [350, 25];
+    sourceFolderEditText.alignment = "left";
+
+    var destinationFolderText = dialog.add("statictext", undefined, "Select the destination folder:");
+    destinationFolderText.alignment = "center";
+    var destinationFolderGroup = dialog.add("group");
+    var destinationFolderButton = destinationFolderGroup.add("button", undefined, "Select Folder");
+    destinationFolderButton.alignment = "left";
+    var destinationFolderEditText = destinationFolderGroup.add("edittext", undefined, "", {multiline: false});
+    destinationFolderEditText.size = [350, 25];
+    destinationFolderEditText.alignment = "left";
+
+    var buttonGroup = dialog.add("group");
+    var cancelButton = buttonGroup.add("button", undefined, "Cancel");
+    cancelButton.alignment = "left";
+    var runButton = buttonGroup.add("button", undefined, "RUN");
+    runButton.alignment = "left";
+    buttonGroup.orientation = "row";
+    buttonGroup.alignChildren = "left";
+
+    documentFolderButton.onClick = function() {
+        var documentFolder = Folder.selectDialog("Select the folder containing Photoshop documents");
+      if (documentFolder != null) {
+          documentFolderEditText.text = documentFolder.fsName;
+          documentFolderEditText.size = [350, 25];
+      }
+  };
+
+  sourceFolderButton.onClick = function() {
+      var sourceFolder = Folder.selectDialog("Select the source folder");
+      if (sourceFolder != null) {
+          sourceFolderEditText.text = sourceFolder.fsName;
+          sourceFolderEditText.size = [350, 25];
+      }
+  };
+
+  destinationFolderButton.onClick = function() {
+      var destinationFolder = Folder.selectDialog("Select the destination folder");
+      if (destinationFolder != null) {
+          destinationFolderEditText.text = destinationFolder.fsName;
+          destinationFolderEditText.size = [350, 25];
+      }
+  };
+
+  cancelButton.onClick = function() {
+      dialog.close();
+  };
+
+  runButton.onClick = function()
+{
+    var documentFolder = new Folder(documentFolderEditText.text);
+    var sourceFolder = new Folder(sourceFolderEditText.text);
+    var destinationFolder = new Folder(destinationFolderEditText.text);
+
+    if (documentFolder.exists && sourceFolder.exists && destinationFolder.exists) {
+        folders = [documentFolder, sourceFolder, destinationFolder];
+        scriptRun = true;
+        dialog.close();
+        alert("The script has finished running.");
+    } else {
+        alert("Please select valid folders.");
+    }
+};
+
+dialog.show();
+
+if (!scriptRun) {
+    return null;
+}
+
+return folders;}
+
+if (folders != null) {
+  var documentFolder = folders[0];
+  var sourceFolder = folders[1];
+  var destinationFolder = folders[2];
+  var documentFiles = documentFolder.getFiles(/\.(psd)$/i);
+  for (var i = 0; i < documentFiles.length; i++) {
+      var document = open(documentFiles[i]);
+      var documentName = documentFiles[i].name.match(/(.*)\.[^\.]*$/)[1];
+      var layers = document.layers;
+      for (var j = 0; j < layers.length; j++) {
+          var layer = layers[j];
+          if (layer.kind == LayerKind.SMARTOBJECT && layer.name == "smart_object") {
+              for (var k = 0; k < sourceFiles.length; k++) {
+                  var sourceFile = sourceFiles[k];
+                  var sourceName = sourceFile.name.match(/(.*)\.[^\.]*$/)[1];
+                  var exportFolder = new Folder(destinationFolder + "/" + sourceName);
+                  if (!exportFolder.exists) {
+                      exportFolder.create();
+                  }
+                  var newDocument = open(sourceFile);
+                  var newLayer = newDocument.artLayers[0];
+                  newLayer.copy();
+                  app.activeDocument = document;
+                  layer = document.layers[j];
+                  layer.name = "temp";
+                  layer.copy();
+                  layer = document.paste();
+                  layer.name = "new_smart_object";
+                  newDocument.close(SaveOptions.DONOTSAVECHANGES);
+                  layer = document.layers.getByName("temp");
+                  layer.remove();
+                  var exportFile = new File(exportFolder + "/" + documentName + ".jpg");
+                  document.saveAs(exportFile, jpgSaveOptions, true);
+              }
+          }
+      }
+      document.close(SaveOptions.DONOTSAVECHANGES);
+  }
+}
+
+function selectQuality() {
+  var qualityDialog = new Window("dialog", "Select JPG Quality");
+  var qualityText = qualityDialog.add("statictext", undefined, "Select the JPG quality (1-12):");
+  var qualitySlider = qualityDialog.add("slider", undefined, 11, 1, 12);
+  var qualityValue = qualityDialog.add("edittext", undefined, "11");
+  var qualityButtonGroup = qualityDialog.add("group");
+  var qualityCancelButton = qualityButtonGroup.add("button", undefined, "Cancel");
+  var qualityOkButton = qualityButtonGroup.add("button", undefined, "OK");
+  qualityCancelButton.onClick = function() {
+      qualityDialog.close();
+  };
+  qualityOkButton.onClick = function() {
+      qualityDialog.close();
+  };
+  qualitySlider.onChanging = function() {
+      qualityValue.text = Math.round(qualitySlider.value).toString();
+  };
+  qualityValue.onChange = function() {
+      qualitySlider.value = parseInt(qualityValue.text);
+  };
+  qualityDialog.show();
+  return parseInt(qualityValue.text);
+}
+
+// display the modal dialog for selecting source and destination folders
+var folders = selectFolders();
+if (folders != null) {
+  var documentFolder = folders[0];
+  var sourceFolder = folders[1];
+  var destinationFolder = folders[2];
+  var documentFiles = documentFolder.getFiles(/\.(psd)$/i);
+  var jpgQuality = selectQuality();
+  jpgSaveOptions = new JPEGSaveOptions();  
+  jpgSaveOptions.embedColorProfile = true;  
+  jpgSaveOptions.formatOptions = FormatOptions.STANDARDBASELINE;  
+  jpgSaveOptions.matte = MatteType.NONE;  
+  jpgSaveOptions.quality = jpgQuality;
+
+  for (var i = 0; i < documentFiles.length; i++) {
+      var document = open(documentFiles[i]);
+      var documentName = documentFiles[i].name.match(/(.*)\.[^\.]*$/)[1];
+      var layers = document.layers;
+      for (var j = 0; j < layers.length; j++) {
+          var layer = layers[j];
+          if (layer.kind == LayerKind.SMARTOBJECT && layer.name == "smart_object") {
+              var sourceFiles = sourceFolder.getFiles(/\.(png|psd|tif|jpg)$/i);
+              for (var k = 0; k < sourceFiles.length; k++) {
+                  var sourceFile = sourceFiles[k];
+                  var sourceName = sourceFile.name.match(/(.*)\.[^\.]*$/)[1];
+                  var exportFolder = new Folder(destinationFolder + "/" + sourceName);
+                  if (!exportFolder.exists) {
+                      exportFolder.create();
+                  }
+                  var newDocument = open(sourceFile);
+                  var newLayer = newDocument.artLayers[0];
+                  newLayer.copy();
+                  app.activeDocument = document;
+                  layer = document.layers[j];
+                  layer.name = "temp";
+                  layer.copy();
+                  layer = document.paste();
+                  layer.name = "new_smart_object";
+                  newDocument.close(SaveOptions.DONOTSAVECHANGES);
+                  layer = document.layers.getByName("temp");
+                  layer.remove();
+                  var exportFile = new File(exportFolder + "/" + documentName + ".jpg");
+                  document.saveAs(exportFile, jpgSaveOptions, true);
+              }
+          }
+      }
+      document.close(SaveOptions.DONOTSAVECHANGES);
+  }
+}
+
+function selectQuality() {
+  var qualityDialog = new Window("dialog", "Select JPG Quality");
+  var qualityText = qualityDialog.add("statictext", undefined, "Select the JPG quality (1-12):");
+  var qualitySlider = qualityDialog.add("slider", undefined, 11, 1, 12);
+  var qualityValue = qualityDialog.add("edittext", undefined, "11");
+  var qualityButtonGroup = qualityDialog.add("group");
+  var qualityCancelButton = qualityButtonGroup.add("button", undefined, "Cancel");
+  var qualityOkButton = qualityButtonGroup.add("button", undefined, "OK");
+  qualityCancelButton.onClick = function() {
+      qualityDialog.close();
+  };
+  qualityOkButton.onClick = function() {
+      qualityDialog.close();
+  };
+  qualitySlider.onChanging = function() {
+      qualityValue.text = Math.round(qualitySlider.value).toString();
+  };
+  qualityValue.onChange = function() {
+      qualitySlider.value = parseInt(qualityValue.text);
+  };
+  qualityDialog.show();
+  return parseInt(qualityValue.text);
+}
+
+// display the modal dialog for selecting source and destination folders
+var folders = selectFolders();
+if (folders != null) {
+  var documentFolder = folders[0];
+  var sourceFolder = folders[1];
+  var destinationFolder = folders[2];
+  var documentFiles = documentFolder.getFiles(/\.(psd)$/i);
+  var jpgQuality = selectQuality();
+  jpgSaveOptions = new JPEGSaveOptions();  
+  jpgSaveOptions.embedColorProfile = true;  
+  jpgSaveOptions.formatOptions = FormatOptions.STANDARDBASELINE;  
+  jpgSaveOptions.matte = MatteType.NONE;  
+  jpgSaveOptions.quality = jpgQuality;
+
+  for (var i = 0; i < documentFiles.length; i++) {
+      var document = open(documentFiles[i]);
+      var documentName = documentFiles[i].name.match(/(.*)\.[^\.]*$/)[1];
+      var layers = document.layers;
+      for (var j = 0; j < layers.length; j++) {
+          var layer = layers[j];
+          if (layer.kind == LayerKind.SMARTOBJECT && layer.name == "smart_object") {
+              var sourceFiles = sourceFolder.getFiles(/\.(png|psd|tif|jpg)$/i);
+              for (var k = 0; k < sourceFiles.length; k++) {
+                  var sourceFile = sourceFiles[k];
+                  var sourceName = sourceFile.name.match(/(.*)\.[^\.]*$/)[1];
+                  var exportFolder = new Folder(destinationFolder + "/" + sourceName);
+                  if (!exportFolder.exists) {
+                      exportFolder.create();
+                  }
+                  var newDocument = open(sourceFile);
+                  var newLayer = newDocument.artLayers[0];
+                  newLayer.copy();
+                  app.activeDocument = document;
+                  layer = document.layers[j];
+                  layer.name = "temp";
+                  layer.copy();
+                  layer = document.paste();
+                  layer.name = "new_smart_object";
+                  newDocument.close(SaveOptions.DONOTSAVECHANGES);
+                  layer = document.layers.getByName("temp");
+                  layer.remove();
+                  var exportFile = new File(exportFolder + "/" + documentName + ".jpg");
+                  document.saveAs(exportFile, jpgSaveOptions, true);
+              }
+          }
+      }
+      document.close(SaveOptions.DONOTSAVECHANGES);
+  }
+}
+
